@@ -1,0 +1,28 @@
+# YAML Station configuration file for G15
+#
+# This file gets snapshotted and can be read back from the JSON
+# snapshot for every experiment run.
+#
+# The file starts with a list of loadable instruments instances,
+# i.e. there can be two entries for two instruments of the same
+# type if you want to specify two different use cases
+# e.g. "dmm1-readout" and "dmm1-calibration".
+#
+instruments:
+  # Each instrument is specified by its name.
+  # This name is what is looked up by the `load_instrument`
+  # method of `Station`.
+  lia1:
+    type: qcodes.instrument_drivers.stanford_research.SR830
+    address: GPIB::1::65535::INSTR
+    enable_forced_reconnect: true
+
+  lia2:
+    type: qcodes.instrument_drivers.stanford_research.SR830
+    address: GPIB::1::65535::INSTR
+    enable_forced_reconnect: true
+
+  dmm1:
+    type: qcodes.instrument_drivers.agilent.Agilent34401A
+    address: GPIB::1::65535::INSTR
+    enable_forced_reconnect: true
