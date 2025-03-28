@@ -1,0 +1,165 @@
+# Example YAML Station configuration file
+#
+# This file gets snapshotted and can be read back from the JSON
+# snapshot for every experiment run.
+#
+# All fields are optional unless explicitly mentioned otherwise.
+#
+# As in all YAML files a one-line notation can also be used
+# instead of nesting notation.
+#
+# The file starts with a list of loadable instruments instances,
+# i.e. there can be two entries for two instruments of the same
+# type if you want to specify two different use cases
+# e.g. "dmm1-readout" and "dmm1-calibration".
+#
+instruments:
+  # Each instrument is specified by its name.
+  # This name is what is looked up by the `load_instrument`
+  # method of `Station`.
+  # Simulated instruments can also be specified here, just put
+  # the path to the simulation .yaml file as the value of the
+  # "init"->"visalib" field (see below for an example of the
+  # "init" section as well as an example of specifying
+  # a simulated instrument).
+  qdac:
+    # Full import path to the python class of the instrument
+    # driver
+    type: qcodes.instrument_drivers.QDev.QDevQDac
+    # Visa address of the instrument.
+    # Note that this field can also be specified in the
+    # "init" section (see below) but the address specified
+    # here will overrule the address from the "init" section.
+    # Essentially, specifying address here allows avoiding
+    # the "init" section completely when address is the only
+    # necessary argument that the instrument driver needs.
+    # For obvious reasons, this field is required for VISA
+    # instruments.
+    address: ASRL4::INSTR
+    # If an instrument with this name is already instantiated,
+    # and this field is true, then the existing instrument
+    # instance will be closed before instantiating this new one.
+    # If this field is false, or left out, closing will not
+    # happen.
+    enable_forced_reconnect: true
+    #
+    # The "init" section specifies constant arguments that are
+    # to be passed to the __init__ function of the instrument.
+    # Note that it is the instrument's driver class that defines
+    # the allowed arguments, for example, here "update_currents"
+    # is an argument that is specific to "QDac" driver.
+    init:
+      terminator: \n
+      update_currents: false
+    #
+    # Setting up properties of parameters that already exist on
+    # the instrument.
+    parameters:
+      # Each parameter is specified by its name from the
+      # instrument driver class.
+      # Note that "dot: notation can be used to specify
+      # parameters in (sub)channels and submodules.
+      ch01.v:
+        # If an alias is specified, the parameter becomes
+        # accessible under another name, so that you can write
+        # `qdac.cutter_gate(0.2)` instead of `qdac.ch01.v(0.2)`.
+        # Note that the parameter instance does not get copied,
+        # so that `(qdac.ch01.v is qdac.cutter_gate) == True`.
+        alias: cutter_gate
+        # Set new label.
+        label: Cutter Gate Voltage
+        # Set new unit.
+        unit: mV
+        # Set new scale.
+        scale: 0.001
+        # Set new post_delay.
+        post_delay: 0
+        # Set new inter_delay.
+        inter_delay: 0.01
+        # Set new step.
+        step: 1e-4
+        # If this field is given, and contains an array of two
+        # numbers like here, then the parameter
+        # gets a new `Numbers` validator with these values as
+        # lower and upper limits, respectively (in this case, it
+        # is `Numbers(-0.1, 0.1)`).
+        limits: [-0.1, 0.1]
+        # Set the parameter to this given initial value upon
+        # instrument initialization.
+        # Note that if the current value on the physical
+        # instrument is different, the parameter will be ramped
+        # with the delays and step specified in this file.
+        initial_value: 0.01
+        # In case this values equals to true, upon loading this
+        # instrument from this configuration this parameter will
+        # be appended to the list of parameters that are
+        # displayed in QCoDeS `Monitor`.
+        monitor: true
+      # As in all YAML files a one-line notation can also be
+      # used, here is an example.
+      ch02.v: {scale: 0.01, limits: [0.0, 1.5e+3] , label: my label}
+      ch04.v: {alias: Q1lplg1, monitor: true}
+    #
+    # This section allows to add new parameters to the
+    # instrument instance which are based on existing parameters
+    # of the instrument. This functionality is based on the use
+    # of the `DelegateParameter` class.
+    add_parameters:
+      # For example, here we define a parameter that represents
+      # magnetic field control. Setting and getting this
+      # parameter will actually set/get a specific DAC channel.
+      # So this new magnetic field parameter is playing a role
+      # of a convenient proxy - it is much more convenient to
+      # perform a measurement where "Bx" is changed in tesla as
+      # opposed to where some channel of some DAC is changed in
+      # volts and one has to clutter the measurement code with
+      # the mess of conversion factors and more.
+      # Every new parameter definition starts with a name of
+      # the new parameter.
+      Bx:
+        # This field specifies the parameter which "getter" and
+        # "setter" will be used when calling `get`/`set` on this
+        # new parameter.
+        # Required field.
+        source: ch02.v
+        # Set the label. Otherwise, the one of the source parameter
+        # will be used.
+        label: Magnetic Field X-Component
+        # Set the unit. Otherwise, the one of the source parameter
+        # will be used.
+        unit: T
+        # Other fields have the same purpose and behavior as for
+        # the entries in the `add_parameter` section.
+        scale: 65.243
+        inter_delay: 0.001
+        post_delay: 0.05
+        step: 0.001
+        limits: [0.0, 3.0]
+        initial_value: 0.0
+        # For the sake of example, we decided not to monitor this
+        # parameter in QCoDeS `Monitor`.
+        #monitor: true
+  #
+  # More example instruments, just for the sake of example.
+  # Note that configuring simulated instruments also works,
+  # see the use of 'visalib' argument field below
+  dmm1:
+    type: qcodes.instrument_drivers.agilent.Agilent34401A
+    enable_forced_reconnect: true
+    address: GPIB::1::65535::INSTR
+    init:
+      visalib: 'Agilent_34400A.yaml@sim'
+    parameters:
+      volt: {monitor: true}
+  mock_dac:
+    type: qcodes.instrument_drivers.mock_instruments.DummyInstrument
+    enable_forced_reconnect: true
+    init:
+      # To pass an list of items use {}.
+      gates: {"ch1", "ch2"}
+    add_parameters:
+      Bx: {source: ch1, label: Bx, unit: T,
+           scale: 28, limits: [-1, 1], monitor: true}
+  mock_dac2:
+    type: qcodes.instrument_drivers.mock_instruments.DummyInstrument
+    enable_forced_reconnect: true
