@@ -14,15 +14,74 @@ instruments:
   # method of `Station`.
   lia1:
     type: qcodes.instrument_drivers.stanford_research.SR830
-    address: GPIB::1::65535::INSTR
+    address: GPIB::10::INSTR
     enable_forced_reconnect: true
+
+    parameters:
+      X:
+        alias: current_X
+        label: Current X Quadrature
+      
+      Y:
+        alias: current_Y
+        label: Current Y Quadrature
 
   lia2:
     type: qcodes.instrument_drivers.stanford_research.SR830
-    address: GPIB::1::65535::INSTR
+    address: GPIB::9::INSTR
     enable_forced_reconnect: true
 
+    parameters:
+      X:
+        alias: voltage_X
+        label: Voltage X Quadrature
+      
+      Y:
+        alias: voltage_Y
+        label: Voltage Y Quadrature
+
+      amplitude:
+        alias: vds
+        label: Excitation Voltage Drain Source Sample
+
   dmm1:
-    type: qcodes.instrument_drivers.agilent.Agilent34401A
-    address: GPIB::1::65535::INSTR
+    type: qcodes.instrument_drivers.Keithley.Keithley2400
+    address: GPIB::27::INSTR
     enable_forced_reconnect: true
+
+    parameters:
+      volt:
+        alias: contact_gate
+        label: Contact Gate Voltage
+        unit: V
+        limits: [-30,0]
+        step: 0.01
+        post_delay: 0
+        inter_delay: 0.01
+        monitor: true
+
+  hp:
+    type: instrument_drivers.HP.HP4142B
+    address: GPIB::20::INSTR
+    enable_forced_reconnect: true
+
+    parameters:
+      smu1.volt:
+        alias: back_gate
+        label: Back Gate Voltage
+        unit: V
+        limits: [-15,15]
+        step: 0.01
+        post_delay: 0
+        inter_delay: 0.01
+        monitor: true
+
+      smu4.volt:
+        alias: top_gate
+        label: Top Gate Voltage
+        unit: V
+        limits: [-15,15]
+        step: 0.01
+        post_delay: 0
+        inter_delay: 0.01
+        monitor: true
