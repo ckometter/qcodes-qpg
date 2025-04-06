@@ -47,7 +47,7 @@ instruments:
   dmm1:
     type: qcodes.instrument_drivers.Keithley.Keithley2400
     address: GPIB::27::INSTR
-    enable_forced_reconnect: true
+    enable_forced_reconnect: false
 
     parameters:
       volt:
@@ -63,7 +63,7 @@ instruments:
   hp:
     type: instrument_drivers.HP.HP4142B
     address: GPIB::20::INSTR
-    enable_forced_reconnect: true
+    enable_forced_reconnect: false
 
     parameters:
       smu1.volt:
@@ -84,4 +84,16 @@ instruments:
         step: 0.01
         post_delay: 0
         inter_delay: 0.01
+        monitor: true
+
+      smu1.curr:
+        alias: back_gate_curr
+        label: Back Gate Leakage Current
+        unit: A
+        monitor: true
+
+      smu4.curr:
+        alias: top_gate_curr
+        label: Top Gate Leakage Current
+        unit: A
         monitor: true
