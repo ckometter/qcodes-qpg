@@ -143,11 +143,10 @@ class LinearBalancingBridge(object):
         pass
 
 class CapacitanceBridge(LinearBalancingBridge):
-    def __init__(self, acbox, excitation_channel, lck, *args, **kwargs):
+    def __init__(self, acbox, lck, *args, **kwargs):
         super(CapacitanceBridge, self).__init__(*args, **kwargs)
         self.ac = acbox
         self.lck = lck
-        self.channel = excitation_channel
 
     def capacitance(self, ac_scale):
         """
@@ -185,16 +184,28 @@ class CapacitanceBridgeSR830Lockin(CapacitanceBridge):
         super(CapacitanceBridgeSR830Lockin, self).__init__(*args, **kwargs)
         if time_const is not None:
             self.lck.time_constant(time_const)
-            time.sleep(self.lck.wait_time()['s'])
+            time.sleep(self.wait_time())
+
+    def wait_time(self):
+        tc = self.lck.time_constant()
+        slope = self.lck.filter_slope()
+        if slope == 6:
+            return 5*tc # recommended 5
+        elif slope == 12:
+            return 7*tc # 7
+        elif slope == 18:
+            return 9*tc
+        else:# slope == 3:
+            return 10*tc
 
     def measure(self):
         lck = self.lck
-        wait_time = lck.wait_time()['s']
+        wait_time = self.wait_time()
         time.sleep(wait_time)
-        lck.auto_sensitivity()
-        x = lck.x()
-        y = lck.y()
-        meas = np.array(([x['V']], [y['V']]))
+        lck.autorange(5)
+        x = lck.X()
+        y = lck.Y()
+        meas = np.array(([x], [y]))
         return meas
 
     def excite(self, s_in):
@@ -203,20 +214,19 @@ class CapacitanceBridgeSR830Lockin(CapacitanceBridge):
         phase = self.vec_phase(s_in)
         print('phase: ')
         print(phase)
-        ac.set_phase(phase)
-        ac.set_voltage(self.channel, np.linalg.norm(s_in))
+        ac.phase(phase)
+        ac.amplitude(np.linalg.norm(s_in))
         return True
 
     def convertData(self, raw_meas, adc_offset=0, adc_scale=1, dac_offset=0, dac_expand=1,preamp_scale = 1.0):
         x = raw_meas
         fullscale = 10
         lck = self.lck
-        sen = lck.sensitivity()['V']
+        sen = lck.sensitivity()
         # x = ((x/sen - dac_offset)*dac_expand*fullscale - adc_offset)*adc_scale
         x = (x - adc_offset)/adc_scale*sen/fullscale/preamp_scale
         # y = ((y/sen - dac_offset)*dac_expand*fullscale - adc_offset)*adc_scale
         return x
-
 
     @staticmethod
     def vec_phase(s):

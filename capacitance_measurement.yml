@@ -45,12 +45,10 @@ balancing_settings:
   iter: 10
   rebalance : True
 
-acbox_settings:
-  chX1: 1.0
-  chX2: 0.7
-  chY1: 0.3
-  chY2: 1.0
-  frequency: 677.77
+awg_settings:
+  ch1_v: 1.0
+  ch2_v: 0.75
+  frequency: 87534.2
   ref_atten: 0
   sample_atten: 20
 

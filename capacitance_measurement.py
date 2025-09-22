@@ -2,12 +2,13 @@ from pathlib import Path
 from time import sleep
 import tqdm
 import yaml
-with open("config.yml", 'r') as ymlfile:
+with open("capacitance_measurement.yml", 'r') as ymlfile:
         cfg = yaml.load(ymlfile)
 meas_settings = cfg[cfg['measurement']]
 balancing_settings = cfg['balancing_settings']
 lockin_settings = cfg['lockin_settings']
 meas_parameters = cfg['meas_parameters']
+awg_settings = cfg['awg_settings']
 
 import numpy as np
 
@@ -41,14 +42,15 @@ def init_bridge(lck, acbox, cfg):
     ref_ch = stngs['ref_ch']
     cb = bridge(lck=lck, acbox=acbox, time_const=stngs['balance_tc'],
                            iterations=stngs['iter'], tolerance=stngs['tolerance'],
-                           s_in1=s1, s_in2=s2, excitation_channel=ref_ch)
+                           s_in1=s1, s_in2=s2)
 
     return cb
 
-cb = init_bridge(lia1, awg, cfg)
+cb = init_bridge(lia1, awg.channel2, cfg)
 v_fixed = -0.46
 def balance(cb, lck):
-    ac_scale = 10**(-(stngs['ref_atten'] - stngs['sample_atten'])/20.0)/float(stngs['chY1']/3.0)
+    stngs = cfg['balancing_settings']
+    ac_scale = 10**(-(stngs['ref_atten'] - stngs['sample_atten'])/20.0)/float(stngs['ch1']/3.0)
     v1_balance, v2_balance = function_select(meas_settings['fixed'])(balancing_settings['p0'], balancing_settings['n0'], meas_parameters['delta_var'], v_fixed)
 
     lck.time_constant(balancing_settings['balance_tc'])
@@ -114,17 +116,23 @@ def function_select(s):
 def veryfirst():
     print("Starting the measurement")
 
-def init_awg(acbox, stngs):
+def init_awg(awg, awg_settings):
     # vs_scale = 10**(-stngs['sample_atten']/20.0) * 250.0
     # refsc = 10**(-stngs['ref_atten']/20.0) * 250.0
     # ac_scale = (refsc / vs_scale)/float(stngs['chY1'])
-    ac_scale = 10**(-(stngs['ref_atten'] - stngs['sample_atten'])/20.0)/float(stngs['chY1']/3.0)
-    awg.channel1
-    acbox.set_voltage("X1", stngs['chX1'])
-    acbox.set_voltage("X2", stngs['chX1'])
-    acbox.set_voltage("Y1", stngs['chY1'])
-    acbox.set_voltage("Y2", stngs['chY2'])
-    acbox.set_frequency(stngs['frequency'])
+    ac_scale = 10**(-(awg_settings['ref_atten'] - awg_settings['sample_atten'])/20.0)/float(awg_settings['ch1_v']/3.0)
+    
+    awg.channel1.enabled(True)
+    awg.channel2.enabled(True)
+
+    awg.channel1.frequency(awg_settings['frequency'])
+    awg.channel2.frequency(awg_settings['frequency'])
+
+    awg.channel1.phase(90)
+
+    awg.channel1.amplitude(awg_settings['ch1_v'])
+    awg.channel2.amplitude(awg_settings['ch2_v'])
+
     sleep(1)
 
 def set_initial_conditions():
@@ -142,6 +150,7 @@ exp = load_or_create_experiment(
 meas = Measurement(exp=exp, station=station, name="Capacitance measurement")
 
 meas.add_before_run(veryfirst, ())  # add a set-up action
+meas.add_before_run(init_awg, (awg, awg_settings))  # add a set-up action
 meas.add_before_run(set_initial_conditions, ())  # add a set-up action
 meas.add_after_run(thelast, ())  # add a tear-down action
 
