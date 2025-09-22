@@ -102,3 +102,8 @@ instruments:
     type: instrument_drivers.Siglent.SiglentSDG2042X
     address: USB0::0xF4EC::0x1103::SDG1PA0C900083::INSTR
     enable_forced_reconnect: false
+
+  da:
+    type: instrument_drivers.QPG.QPGUVoltDAQ4O4I
+    address: ASRL15::INSTR
+    enable_forced_reconnect: false

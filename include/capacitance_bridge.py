@@ -87,7 +87,9 @@ class LinearBalancingBridge(object):
             print("m1")
             print(m1)
             self.excite(self.s2)
+            print("m2")
             m2 = self.measure()
+            print(m2)
             self.M  = self.responseMatrix(self.s1, self.s2, m1, m2)[0]
         else:
             self.M = matrix
@@ -118,6 +120,8 @@ class LinearBalancingBridge(object):
                 mb = self.measure()
                 print('mb')
                 print(mb)
+                print('Norm mb')
+                print(np.linalg.norm(mb))
                 self.constantOffset = self.refineBalance(self.vb, mb)
                 print('constantoffset')
                 print(self.constantOffset)
@@ -214,8 +218,8 @@ class CapacitanceBridgeSR830Lockin(CapacitanceBridge):
         phase = self.vec_phase(s_in)
         print('phase: ')
         print(phase)
-        ac.phase(phase)
-        ac.amplitude(np.linalg.norm(s_in))
+        ac.channel1.phase(phase)
+        ac.channel2.amplitude(np.linalg.norm(s_in))
         return True
 
     def convertData(self, raw_meas, adc_offset=0, adc_scale=1, dac_offset=0, dac_expand=1,preamp_scale = 1.0):
