@@ -15,6 +15,7 @@ import numpy as np
 from include.capacitance_bridge import CapacitanceBridgeSR830Lockin as bridge
 
 import qcodes as qc
+from qcodes.parameters import Parameter
 from qcodes.dataset import (
     Measurement,
     initialise_or_create_database_at,
@@ -35,6 +36,24 @@ da = station.load_instrument('da')
 # lia2 = station.load_instrument('lia2')
 # dmm1 = station.load_instrument('dmm1')
 # hp = station.load_instrument('hp')
+
+Vt_0 = -2
+Vt_f = 2
+Vb_0 = -2
+Vb_f = 2
+Vt_npts = 20
+Vb_npts = 20
+Vcg_val = 0
+
+Vt_Range = np.linspace(Vt_0,Vt_f,Vt_npts)
+Vb_Range = np.linspace(Vb_0,Vb_f,Vb_npts)
+    
+Vt_mesh, Vb_mesh = np.meshgrid(Vt_Range, Vb_Range)
+    
+mask = np.abs(Vt_mesh-(Vcg_val)) <= 100
+    
+Vt_masked = np.where(mask, Vt_mesh, np.nan)
+Vb_masked = np.where(mask, Vb_mesh, np.nan)
 
 s1 = np.array((0.5, 0.5)).reshape(2, 1)
 s2 = np.array((-0.5, -0.5)).reshape(2, 1)
@@ -149,7 +168,28 @@ exp = load_or_create_experiment(
 )
 
 meas = Measurement(exp=exp, station=station, name="Capacitance measurement")
+
+Cap = Parameter(
+    name="Cap",
+    label="Capacitance",
+    unit="F",            # or '' for dimensionless ratio
+    get_cmd=None         # it's not read from hardware; we pass values manually
+)
+
+Dis = Parameter(
+    name="Dis",
+    label="Dissipation",
+    unit="Ohm",            # or '' for dimensionless ratio
+    get_cmd=None         # it's not read from hardware; we pass values manually
+)
+
 meas.register_parameter(da.DAC0.volt)
+meas.register_parameter(da.DAC1.volt)
+meas.register_parameter(lia1.X, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+meas.register_parameter(lia1.Y, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+meas.register_parameter(Cap, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+meas.register_parameter(Dis, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+
 
 meas.add_before_run(veryfirst, ())  # add a set-up action
 meas.add_before_run(init_awg, (awg, awg_settings))  # add a set-up action
@@ -161,26 +201,30 @@ meas.write_period = 0.1
 with meas.run() as datasaver:
     cb = init_bridge(lia1, awg, cfg)
     capacitance_params = balance(cb, lia1)
+    cs = capacitance_params['Capacitance']
+    ds = capacitance_params['Dissipation']
+    c_ = capacitance_params['offbalance c_']
+    d_ = capacitance_params['offbalance d_']
 
     # lia1.sensitivity[lockin_settings['sensitivity']]
-    # lia1.time_constant[lockin_settings['tc']]
+    lia1.time_constant[lockin_settings['tc']]
 
-#     for j in tqdm.tqdm(range(Vt_npts)):
-#         for i in range(Vb_npts):
-#             v1 = Vt_masked[i,j]
-#             v2 = Vb_masked[i,j]
-#             if np.isnan(v1) or np.isnan(v2):
-#                 continue
-#             hp.smu4.volt(v1)
-#             hp.smu1.volt(v2)
-#             sleep(1.5)
-#             i1 = hp.smu4.curr()
-#             i2 = hp.smu1.curr()
-#             z1 = lia1.X()
-#             z2 = lia1.Y()
-#             z3 = lia2.X()
-#             z4 = lia2.Y()
-#             datasaver.add_result((hp.smu1.volt, v2), (hp.smu4.volt, v1), (hp.smu1.curr, i1), (hp.smu4.curr, i2), (lia1.X, z1), (lia1.Y, z2), (lia2.X, z3), (lia2.Y, z4))
-#     dataset2D = datasaver.dataset
+    for j in tqdm.tqdm(range(Vt_npts)):
+        for i in range(Vb_npts):
+            v1 = Vt_masked[i,j]
+            v2 = Vb_masked[i,j]
+            if np.isnan(v1) or np.isnan(v2):
+                continue
+            da.DAC0.volt(v1)
+            da.DAC1.volt(v2)
+            sleep(1.5)
+            zx = lia1.X()
+            zy = lia1.Y()
 
-# ax, cbax = plot_dataset(dataset2D)
+            d_cap = (c_ * zx + d_ * zy) + cs
+            d_dis = (d_ * zx - c_ * zy) + ds
+
+            datasaver.add_result((da.DAC0.volt, v2), (da.DAC1.volt, v1), (lia1.X, zx), (lia1.Y, zy), (Cap, d_cap), (Dis, d_dis))
+    dataset2D = datasaver.dataset
+
+ax, cbax = plot_dataset(dataset2D)

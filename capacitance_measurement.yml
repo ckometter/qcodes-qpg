@@ -29,12 +29,12 @@ Csym:
 lockin: SR830  # Write 'SR830' or '7280'
 
 lockin_settings:
-  tc: 100e-3
+  tc: 0.1
   # acgain: 14
   # sensitiviy: 15
 
 balancing_settings:
-  balance_tc: 300e-3
+  balance_tc: 0.3
   n0: -1
   p0: -1
   tolerance: 0.01e-3
