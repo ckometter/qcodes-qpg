@@ -4,7 +4,9 @@ import tqdm
 import yaml
 with open("capacitance_measurement.yml", 'r') as ymlfile:
         cfg = yaml.safe_load(ymlfile)
-meas_settings = cfg[cfg['measurement']]
+    
+meas_type = cfg["measurement"]
+meas_settings = cfg[meas_type]
 balancing_settings = cfg['balancing_settings']
 lockin_settings = cfg['lockin_settings']
 meas_parameters = cfg['meas_parameters']
@@ -37,12 +39,13 @@ da = station.load_instrument('da')
 # dmm1 = station.load_instrument('dmm1')
 # hp = station.load_instrument('hp')
 
+
 Vt_0 = -2
 Vt_f = 2
 Vb_0 = -2
 Vb_f = 2
-Vt_npts = 20
-Vb_npts = 20
+Vt_npts = 10
+Vb_npts = 10
 Vcg_val = 0
 
 Vt_Range = np.linspace(Vt_0,Vt_f,Vt_npts)
@@ -55,8 +58,11 @@ mask = np.abs(Vt_mesh-(Vcg_val)) <= 100
 Vt_masked = np.where(mask, Vt_mesh, np.nan)
 Vb_masked = np.where(mask, Vb_mesh, np.nan)
 
-s1 = np.array((0.5, 0.5)).reshape(2, 1)
-s2 = np.array((-0.5, -0.5)).reshape(2, 1)
+#s1 = np.array((0.5, 0.5)).reshape(2, 1)
+#s2 = np.array((-0.5, -0.5)).reshape(2, 1)
+
+s1 = np.array((0.1, 0.1)).reshape(2, 1)
+s2 = np.array((-0.1, -0.1)).reshape(2, 1)
 def init_bridge(lck, acbox, cfg):
     stngs = cfg['balancing_settings']
     ref_ch = stngs['ref_ch']
@@ -66,7 +72,6 @@ def init_bridge(lck, acbox, cfg):
 
     return cb
 
-v_fixed = -0.46
 def balance(cb, lck):
     ac_scale = 10**(-(awg_settings['ref_atten'] - awg_settings['sample_atten'])/20.0)/float(awg_settings['ch1_v'])
     v1_balance, v2_balance = function_select(meas_settings['fixed'])(balancing_settings['p0'], balancing_settings['n0'], meas_parameters['delta_var'], v_fixed)
@@ -86,6 +91,8 @@ def balance(cb, lck):
 
     capacitance_params = {'Capacitance': cs, 'Dissipation': ds,
                           'offbalance c_': c_, 'offbalance d_': d_}
+    
+    return capacitance_params
 
 def vb_fixed(p0, n0, delta, vb):
     """
@@ -131,6 +138,21 @@ def function_select(s):
         f = vs_fixed
     return f
 
+n_0 = -1.5
+n_f = 1.5
+p_0 = -1.5
+p_f = 1.5
+n_npts = 100
+p_npts = 100
+v_fixed = -0.4
+delta = 0
+
+n_Range = np.linspace(n_0,n_f,n_npts)
+p_Range = np.linspace(p_0,p_f,p_npts)
+
+voltage_calculator = function_select(meas_settings["fixed"])
+v_fast, v_slow = voltage_calculator(n_Range, p_Range, delta, v_fixed)
+
 def veryfirst():
     print("Starting the measurement")
 
@@ -147,19 +169,13 @@ def init_awg(awg, awg_settings):
     awg.channel1.frequency(awg_settings['frequency'])
     awg.channel2.frequency(awg_settings['frequency'])
 
-    awg.channel1.phase(90)
-    awg.channel2.phase(90)
+    awg.channel1.phase(0)
+    awg.channel2.phase(0)
 
     awg.channel1.amplitude(awg_settings['ch1_v'])
     awg.channel2.amplitude(awg_settings['ch2_v'])
 
     sleep(1)
-
-def set_initial_conditions():
-    print("Ramping to intial conditions")
-
-def thelast():
-    print("Ramping down")
 
 initialise_or_create_database_at(Path.cwd() / "capacitance_meas.db")
 exp = load_or_create_experiment(
@@ -168,6 +184,45 @@ exp = load_or_create_experiment(
 )
 
 meas = Measurement(exp=exp, station=station, name="Capacitance measurement")
+
+class RotatedBasis:
+    def __init__(self, dac0, dac1, transform, delta, v_fixed):
+        """
+        dac0, dac1 : QCoDeS DAC parameters (e.g. da.DAC0.volt, da.DAC1.volt)
+        transform  : function f(vlin1, vlin2) -> (v0, v1)
+        """
+        self.dac0 = dac0
+        self.dac1 = dac1
+        self.transform = transform
+        self.delta = delta
+        self.v_fixed = v_fixed
+        self._n = 0
+        self._p = 0
+
+        self.n = Parameter(
+            "n", unit="V", label="n",
+            set_cmd=self._set_n, get_cmd=lambda: self._n
+        )
+
+        self.p = Parameter(
+            "p", unit="V", label="p",
+            set_cmd=self._set_p, get_cmd=lambda: self._p
+        )
+
+    def _update_dacs(self):
+        v0, v1 = self.transform(self._n, self._p, self.delta, self.v_fixed)
+        self.dac0.volt(v0)
+        self.dac1.volt(v1)
+
+    def _set_n(self, val):
+        self._n = val
+        self._update_dacs()
+
+    def _set_p(self, val):
+        self._p = val
+        self._update_dacs()
+
+rot = RotatedBasis(da.DAC0, da.DAC1, voltage_calculator, delta, v_fixed)
 
 Cap = Parameter(
     name="Cap",
@@ -183,13 +238,38 @@ Dis = Parameter(
     get_cmd=None         # it's not read from hardware; we pass values manually
 )
 
-meas.register_parameter(da.DAC0.volt)
-meas.register_parameter(da.DAC1.volt)
-meas.register_parameter(lia1.X, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
-meas.register_parameter(lia1.Y, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
-meas.register_parameter(Cap, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
-meas.register_parameter(Dis, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+n = rot.n
+p = rot.p
 
+meas.register_parameter(n)
+meas.register_parameter(p)
+meas.register_parameter(da.DAC0.volt,setpoints=(n,p))
+meas.register_parameter(da.DAC1.volt,setpoints=(n,p))
+meas.register_parameter(da.ADC0.volt,setpoints=(n,p))
+meas.register_parameter(lia1.X, setpoints=(n,p))  # now register the dependent oone
+meas.register_parameter(lia1.Y, setpoints=(n,p))  # now register the dependent oone
+meas.register_parameter(Cap, setpoints=(n,p))  # now register the dependent oone
+meas.register_parameter(Dis, setpoints=(n,p))
+
+# meas.register_parameter(da.DAC0.volt)
+# meas.register_parameter(da.DAC1.volt)
+# #meas.register_parameter(lia1.X, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+# #meas.register_parameter(lia1.Y, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+# meas.register_parameter(Cap, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+# meas.register_parameter(Dis, setpoints=(da.DAC0.volt,da.DAC1.volt))  # now register the dependent oone
+
+def set_initial_conditions():
+    print("Ramping to intial conditions")
+    n(-2)
+    p(-2)
+    da.DAC3.volt(v_fixed)
+    sleep(1.5)
+
+def thelast():
+    print("Ramping down")
+    da.DAC0.volt(0)
+    da.DAC1.volt(0)
+    da.DAC3.volt(0)
 
 meas.add_before_run(veryfirst, ())  # add a set-up action
 meas.add_before_run(init_awg, (awg, awg_settings))  # add a set-up action
@@ -199,6 +279,8 @@ meas.add_after_run(thelast, ())  # add a tear-down action
 meas.write_period = 0.1
 
 with meas.run() as datasaver:
+    lia1.autorange(8)
+
     cb = init_bridge(lia1, awg, cfg)
     capacitance_params = balance(cb, lia1)
     cs = capacitance_params['Capacitance']
@@ -206,25 +288,35 @@ with meas.run() as datasaver:
     c_ = capacitance_params['offbalance c_']
     d_ = capacitance_params['offbalance d_']
 
-    # lia1.sensitivity[lockin_settings['sensitivity']]
-    lia1.time_constant[lockin_settings['tc']]
+    lia1.sensitivity(float(lockin_settings['sensitivity']))
+    lia1.time_constant(float(lockin_settings['tc']))
 
-    for j in tqdm.tqdm(range(Vt_npts)):
-        for i in range(Vb_npts):
-            v1 = Vt_masked[i,j]
-            v2 = Vb_masked[i,j]
-            if np.isnan(v1) or np.isnan(v2):
-                continue
-            da.DAC0.volt(v1)
-            da.DAC1.volt(v2)
+    for j in tqdm.tqdm(range(p_npts)):
+        p_j = p_Range[j]
+        p(p_j)
+        sleep(1.5)
+        for i in range(n_npts):
+            n_i = n_Range[i]
+            n(n_i)
+            v1 = da.DAC0.volt.cache.get()
+            v2 = da.DAC1.volt.cache.get()
+            # v1 = Vt_masked[i,j]
+            # v2 = Vb_masked[i,j]
+            # if np.isnan(v1) or np.isnan(v2):
+            #     continue
             sleep(1.5)
+            #capacitance_params = balance(cb, lia1)
+            #d_cap = capacitance_params['Capacitance']
+            #d_dis = capacitance_params['Dissipation']
             zx = lia1.X()
             zy = lia1.Y()
+            z_dc = da.ADC0.volt()
 
             d_cap = (c_ * zx + d_ * zy) + cs
             d_dis = (d_ * zx - c_ * zy) + ds
 
-            datasaver.add_result((da.DAC0.volt, v2), (da.DAC1.volt, v1), (lia1.X, zx), (lia1.Y, zy), (Cap, d_cap), (Dis, d_dis))
+            #datasaver.add_result((da.DAC0.volt, v2), (da.DAC1.volt, v1), (lia1.X, zx), (lia1.Y, zy), (Cap, d_cap), (Dis, d_dis))
+            datasaver.add_result((n, n_i), (p, p_j), (da.DAC0.volt, v1), (da.DAC1.volt, v2), (da.ADC0.volt, z_dc), (lia1.X, zx), (lia1.Y, zy),(Cap, d_cap), (Dis, d_dis))
     dataset2D = datasaver.dataset
 
 ax, cbax = plot_dataset(dataset2D)

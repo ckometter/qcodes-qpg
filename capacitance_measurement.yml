@@ -15,7 +15,7 @@ Cpen:
   ch2: 1
   read1: 1
   read2: 0
-  fixed: vt
+  fixed: vb
 
 Csym:
   v1: V_tg [V]
@@ -29,15 +29,15 @@ Csym:
 lockin: SR830  # Write 'SR830' or '7280'
 
 lockin_settings:
-  tc: 0.1
+  tc: 0.3
   # acgain: 14
-  # sensitiviy: 15
+  sensitivity: 0.2e-3
 
 balancing_settings:
   balance_tc: 0.3
   n0: -1
   p0: -1
-  tolerance: 0.01e-3
+  tolerance: 0.015e-3
   ref_ch: 2
   offset:
     - -0.0
@@ -46,11 +46,11 @@ balancing_settings:
   rebalance : True
 
 awg_settings:
-  ch1_v: 1.0
-  ch2_v: 1.0
-  frequency: 27777.0
-  ref_atten: 0
-  sample_atten: 0
+  ch1_v: 0.05
+  ch2_v: 0.3
+  frequency: 7777.7
+  ref_atten: 20
+  sample_atten: 40
 
 dacadc_settings:
   ch1_offset: -0.0024784313

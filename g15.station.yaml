@@ -19,12 +19,12 @@ instruments:
 
     parameters:
       X:
-        alias: current_X
-        label: Current X Quadrature
+        alias: voltage_X
+        label: Voltage X Quadrature
       
       Y:
-        alias: current_Y
-        label: Current Y Quadrature
+        alias: voltage_Y
+        label: Voltage Y Quadrature
 
   lia2:
     type: qcodes.instrument_drivers.stanford_research.SR830
@@ -108,23 +108,23 @@ instruments:
     address: ASRL15::INSTR
     enable_forced_reconnect: false
 
-    parameters:
-      DAC0.volt:
-        alias: back_gate
-        label: Back Gate Voltage
-        unit: V
-        limits: [-3,3]
-        step: 0.01
-        post_delay: 0
-        inter_delay: 0.01
-        monitor: true
+    # parameters:
+    #   DAC0.volt:
+    #     alias: back_gate
+    #     label: Back Gate Voltage
+    #     unit: V
+    #     limits: [-3,3]
+    #     step: 0.01
+    #     post_delay: 0
+    #     inter_delay: 0.01
+    #     monitor: true
 
-      DAC1.volt:
-        alias: top_gate
-        label: Top Gate Voltage
-        unit: V
-        limits: [-3,3]
-        step: 0.01
-        post_delay: 0
-        inter_delay: 0.01
-        monitor: true
+    #   DAC1.volt:
+    #     alias: top_gate
+    #     label: Top Gate Voltage
+    #     unit: V
+    #     limits: [-3,3]
+    #     step: 0.01
+    #     post_delay: 0
+    #     inter_delay: 0.01
+    #     monitor: true
