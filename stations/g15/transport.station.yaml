@@ -19,12 +19,18 @@ instruments:
 
     parameters:
       X:
-        alias: voltage_X
-        label: Voltage X Quadrature
+        alias: current_X
+        label: Current X Quadrature
+        unit: A
       
       Y:
-        alias: voltage_Y
-        label: Voltage Y Quadrature
+        alias: current_Y
+        label: Current Y Quadrature
+        unit: A
+      
+      amplitude:
+        alias: vds
+        label: Excitation Voltage Drain Source Sample
 
   lia2:
     type: qcodes.instrument_drivers.stanford_research.SR830
@@ -35,14 +41,12 @@ instruments:
       X:
         alias: voltage_X
         label: Voltage X Quadrature
+        unit: V
       
       Y:
         alias: voltage_Y
         label: Voltage Y Quadrature
-
-      amplitude:
-        alias: vds
-        label: Excitation Voltage Drain Source Sample
+        unit: V
 
   dmm1:
     type: qcodes.instrument_drivers.Keithley.Keithley2400
