@@ -138,13 +138,13 @@ def function_select(s):
         f = vs_fixed
     return f
 
-n_0 = -1.5
-n_f = 1.5
-p_0 = -1.5
-p_f = 1.5
+n_0 = -1
+n_f = 1
+p_0 = -1
+p_f = 1
 n_npts = 100
 p_npts = 100
-v_fixed = -0.4
+v_fixed = -0.415
 delta = 0
 
 n_Range = np.linspace(n_0,n_f,n_npts)
@@ -210,7 +210,7 @@ class RotatedBasis:
         )
 
     def _update_dacs(self):
-        v0, v1 = self.transform(self._n, self._p, self.delta, self.v_fixed)
+        v0, v1 = self.transform(self._p, self._n, self.delta, self.v_fixed)
         self.dac0.volt(v0)
         self.dac1.volt(v1)
 
@@ -260,8 +260,8 @@ meas.register_parameter(Dis, setpoints=(n,p))
 
 def set_initial_conditions():
     print("Ramping to intial conditions")
-    n(-2)
-    p(-2)
+    n(-1)
+    p(-1)
     da.DAC3.volt(v_fixed)
     sleep(1.5)
 
@@ -293,18 +293,18 @@ with meas.run() as datasaver:
 
     for j in tqdm.tqdm(range(p_npts)):
         p_j = p_Range[j]
-        p(p_j)
-        sleep(1.5)
+        sleep(3)
         for i in range(n_npts):
             n_i = n_Range[i]
             n(n_i)
+            p(p_j)
             v1 = da.DAC0.volt.cache.get()
             v2 = da.DAC1.volt.cache.get()
             # v1 = Vt_masked[i,j]
             # v2 = Vb_masked[i,j]
             # if np.isnan(v1) or np.isnan(v2):
             #     continue
-            sleep(1.5)
+            sleep(0.5)
             #capacitance_params = balance(cb, lia1)
             #d_cap = capacitance_params['Capacitance']
             #d_dis = capacitance_params['Dissipation']

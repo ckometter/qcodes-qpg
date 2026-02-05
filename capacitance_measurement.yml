@@ -31,7 +31,7 @@ lockin: SR830  # Write 'SR830' or '7280'
 lockin_settings:
   tc: 0.3
   # acgain: 14
-  sensitivity: 0.2e-3
+  sensitivity: 0.1e-3
 
 balancing_settings:
   balance_tc: 0.3
@@ -46,7 +46,7 @@ balancing_settings:
   rebalance : True
 
 awg_settings:
-  ch1_v: 0.05
+  ch1_v: 0.1
   ch2_v: 0.3
   frequency: 7777.7
   ref_atten: 20
