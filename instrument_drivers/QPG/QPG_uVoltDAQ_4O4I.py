@@ -51,10 +51,7 @@ class DacChannel(InstrumentChannel):
 
     def _set_voltage(self, v: float) -> None:
         inst = self.root_instrument
-        inst.write(f"SET,{self._ch},{v:.9e}")
-
-        # Consume the device's ACK line so the buffer is clean
-        ack = inst.read().strip()
+        inst.ask(f"SET,{self._ch},{v:.9e}")
 
 class AdcChannel(InstrumentChannel):
     """
@@ -95,7 +92,7 @@ class QPGUVoltDAQ4O4I(VisaInstrument):
     """
     This is the qcodes driver for the uVoltDAQ 4O4I.
     """
-    default_terminator = "\r"
+    default_terminator = "\r\n"
 
     def __init__(
         self,
