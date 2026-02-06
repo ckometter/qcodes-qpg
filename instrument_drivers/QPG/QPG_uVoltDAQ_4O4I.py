@@ -1,33 +1,28 @@
 from typing import TYPE_CHECKING
 
-from functools import partial
-
-import numpy as np
-
 from qcodes.instrument import (
     ChannelList,
-    Instrument,
     InstrumentBaseKWArgs,
     InstrumentChannel,
     VisaInstrument,
-    VisaInstrumentKWArgs,
 )
 from qcodes.validators import Numbers
-from qcodes import validators as vals
 
 if TYPE_CHECKING:
-    from typing_extensions import Unpack
+    from typing import Unpack
 
-class QPGUVoltDAQOutputChannel(InstrumentChannel):
+class DacChannel(InstrumentChannel):
     """
-    Class for .
+    One DAC output channel.
     """
 
     def __init__(
         self,
-        parent: Instrument,
+        parent: VisaInstrument,
         name: str,
-        channel: str,
+        channel: int,
+        vmin: float = -10.0,
+        vmax: float = 10.0,
         **kwargs: "Unpack[InstrumentBaseKWArgs]",
     ) -> None:
         """
@@ -35,46 +30,44 @@ class QPGUVoltDAQOutputChannel(InstrumentChannel):
             parent: The Instrument instance to which the channel is
                 to be attached.
             name: The 'colloquial' name of the channel
-            channel: The name used by the HP4142B, i.e. either
-                'smu1' or 'smu2'
+            channel: Channel number
             **kwargs: Forwarded to base class.
 
         """
 
-        if channel not in range(4):
-            raise ValueError('channel must be either "0", "1", "2" or "3"')
-
         super().__init__(parent, name, **kwargs)
-        self.channel = channel
-        self.voltage_output_range = 10
-        self.channel_type = type
 
-        self.volt = self.add_parameter(
-            "volt",
-            get_cmd=f"GET_DAC,{self.channel}",
+        self._ch = channel
+
+        self.add_parameter(
+            "voltage",
+            get_cmd=f"GET_DAC,{self._ch}",
             get_parser=float,
-            set_cmd=self._set_volt,
-            # note that the set_cmd is either the following format string
-            #'smua.source.levelv={:.12f}' or 'smub.source.levelv={:.12f}'
-            # depending on the value of `channel`
-            label="Voltage",
+            set_cmd=self._set_voltage,
+            label=f"DAC {self._ch} voltage",
             unit="V",
+            vals=Numbers(vmin, vmax)
         )
-        """Parameter volt"""
 
-    def _set_volt(self, v):
-        _ = self.ask(f"SET,{self.channel},{v}")   # read & ignore/validate reply
+    def _set_voltage(self, v: float) -> None:
+        inst = self.root_instrument
+        inst.write(f"SET,{self._ch},{v:.9e}")
 
-class QPGUVoltDAQInputChannel(InstrumentChannel):
+        # Consume the device's ACK line so the buffer is clean
+        ack = inst.read().strip()
+
+class AdcChannel(InstrumentChannel):
     """
-    Class for .
+    One ADC input channel.
     """
 
     def __init__(
         self,
-        parent: Instrument,
+        parent: VisaInstrument,
         name: str,
-        channel: str,
+        channel: int,
+        vmin: float = -10.0,
+        vmax: float = 10.0,
         **kwargs: "Unpack[InstrumentBaseKWArgs]",
     ) -> None:
         """
@@ -82,42 +75,40 @@ class QPGUVoltDAQInputChannel(InstrumentChannel):
             parent: The Instrument instance to which the channel is
                 to be attached.
             name: The 'colloquial' name of the channel
-            channel: The name used by the HP4142B, i.e. either
-                'smu1' or 'smu2'
+            channel: Channel number
             **kwargs: Forwarded to base class.
 
         """
 
-        if channel not in range(4):
-            raise ValueError('channel must be either "0", "1", "2" or "3"')
-
         super().__init__(parent, name, **kwargs)
-        self.channel = channel
-        self.voltage_output_range = 10
-        self.channel_type = type
+        self._ch = channel
 
-        self.volt = self.add_parameter(
-            "volt",
-            get_cmd=f"GET_ADC,{channel}",
+        self.add_parameter(
+            "voltage",
+            get_cmd=f"GET_ADC,{self._ch}",
             get_parser=float,
-            # note that the set_cmd is either the following format string
-            #'smua.source.levelv={:.12f}' or 'smub.source.levelv={:.12f}'
-            # depending on the value of `channel`
-            label="Voltage",
+            label=f"ADC {self._ch} voltage",
             unit="V",
         )
-        """Parameter volt"""
 
 class QPGUVoltDAQ4O4I(VisaInstrument):
     """
-    This is the qcodes driver for the dac-adc,
-    tested with dac-adc
+    This is the qcodes driver for the uVoltDAQ 4O4I.
     """
-
     default_terminator = "\r"
 
     def __init__(
-        self, name: str, address: str, **kwargs: "Unpack[VisaInstrumentKWArgs]"
+        self,
+        name: str,
+        address: str,
+        timeout: float = 5.0,
+        *,
+        initialize: bool = False,
+        vmin_dac: float = -10.0,
+        vmax_dac: float = 10.0,
+        vmin_adc: float = -10.0,
+        vmax_adc: float = 10.0,
+        **kwargs: "Unpack[InstrumentBaseKWArgs]",
     ) -> None:
         """
         Args:
@@ -126,19 +117,31 @@ class QPGUVoltDAQ4O4I(VisaInstrument):
             **kwargs: kwargs are forwarded to the base class.
 
         """
-        super().__init__(name, address, **kwargs)
+        super().__init__(name, address, timeout=timeout, **kwargs)
+        if initialize:
+            self.ask("INITIALIZE")
 
-        self.ask(f"INITIALIZE")
+        self.add_parameter(
+            "idn",
+            get_cmd="*IDN?",
+        )
 
-        # Add the channel to the instrument
+        # Create DAC channels
+        dacs = ChannelList(self, "dacs", DacChannel, snapshotable=True)
         for ch in range(4):
-            ch_name = f"DAC{ch}"
-            channel = QPGUVoltDAQOutputChannel(self, ch_name, ch)
-            self.add_submodule(ch_name, channel)
-
+            ch_name = f"dac{ch}"
+            dac = DacChannel(self, name=ch_name, channel=ch, vmin=vmin_dac, vmax=vmax_dac)
+            dacs.append(dac)
+            self.add_submodule(ch_name, dac)
+        self.add_submodule("dacs", dacs)
+        
+        # Create ADC channels
+        adcs = ChannelList(self, "adcs", AdcChannel, snapshotable=True)
         for ch in range(4):
-            ch_name = f"ADC{ch}"
-            channel = QPGUVoltDAQInputChannel(self, ch_name, ch)
-            self.add_submodule(ch_name, channel)
+            ch_name = f"adc{ch}"
+            adc = AdcChannel(self, name=ch_name, channel=ch, vmin=vmin_adc, vmax=vmax_adc)
+            adcs.append(adc)
+            self.add_submodule(ch_name, adc)
+        self.add_submodule("adcs", adcs)
 
         self.connect_message()
