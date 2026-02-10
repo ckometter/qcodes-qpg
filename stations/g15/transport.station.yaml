@@ -12,123 +12,40 @@ instruments:
   # Each instrument is specified by its name.
   # This name is what is looked up by the `load_instrument`
   # method of `Station`.
-  lia1:
-    type: qcodes.instrument_drivers.stanford_research.SR830
-    address: GPIB::9::INSTR
-    enable_forced_reconnect: true
-
-    parameters:
-      X:
-        alias: current_X
-        label: Current X Quadrature
-        unit: A
-      
-      Y:
-        alias: current_Y
-        label: Current Y Quadrature
-        unit: A
-      
-      amplitude:
-        alias: vds
-        label: Excitation Voltage Drain Source Sample
-
-  lia2:
-    type: qcodes.instrument_drivers.stanford_research.SR830
-    address: GPIB::10::INSTR
-    enable_forced_reconnect: true
-
-    parameters:
-      X:
-        alias: voltage_X
-        label: Voltage X Quadrature
-        unit: V
-      
-      Y:
-        alias: voltage_Y
-        label: Voltage Y Quadrature
-        unit: V
-
-  dmm1:
-    type: qcodes.instrument_drivers.Keithley.Keithley2400
-    address: GPIB::27::INSTR
-    enable_forced_reconnect: false
-
-    parameters:
-      volt:
-        alias: contact_gate
-        label: Contact Gate Voltage
-        unit: V
-        limits: [-30,0]
-        step: 0.01
-        post_delay: 0
-        inter_delay: 0.01
-        monitor: true
-
-  hp:
-    type: instrument_drivers.HP.HP4142B
-    address: GPIB::20::INSTR
-    enable_forced_reconnect: false
-
-    parameters:
-      smu1.volt:
-        alias: back_gate
-        label: Back Gate Voltage
-        unit: V
-        limits: [-15,15]
-        step: 0.01
-        post_delay: 0
-        inter_delay: 0.01
-        monitor: true
-
-      smu4.volt:
-        alias: top_gate
-        label: Top Gate Voltage
-        unit: V
-        limits: [-15,15]
-        step: 0.01
-        post_delay: 0
-        inter_delay: 0.01
-        monitor: true
-
-      smu1.curr:
-        alias: back_gate_curr
-        label: Back Gate Leakage Current
-        unit: A
-        monitor: true
-
-      smu4.curr:
-        alias: top_gate_curr
-        label: Top Gate Leakage Current
-        unit: A
-        monitor: true
-
-  awg:
-    type: instrument_drivers.Siglent.SiglentSDG2042X
-    address: USB0::0xF4EC::0x1103::SDG1PA0C900083::INSTR
-    enable_forced_reconnect: false
-
-  da:
-    type: instrument_drivers.QPG.QPGUVoltDAQ4O4I
+  uvolt:
+    type: your_driver_module.QPGUVoltDAQ4O4I
     address: ASRL15::INSTR
-    enable_forced_reconnect: false
+    timeout: 5
+    initialize: false
 
-    # parameters:
-    #   DAC0.volt:
-    #     alias: back_gate
-    #     label: Back Gate Voltage
-    #     unit: V
-    #     limits: [-3,3]
-    #     step: 0.01
-    #     post_delay: 0
-    #     inter_delay: 0.01
-    #     monitor: true
+  lia_I:
+    type: qcodes.instrument_drivers.stanford_research.SR830.SR830
+    address: GPIB::9::INSTR
 
-    #   DAC1.volt:
-    #     alias: top_gate
-    #     label: Top Gate Voltage
-    #     unit: V
-    #     limits: [-3,3]
-    #     step: 0.01
-    #     post_delay: 0
-    #     inter_delay: 0.01
-    #     monitor: true
+  lia_V:
+    type: qcodes.instrument_drivers.stanford_research.SR830.SR830
+    address: GPIB::10::INSTR
+
+# Optional: non-instrument config you want shared across scripts
+config:
+  gates:
+    back_gate:
+      instrument: uvolt
+      channel: dac0
+      soft_limits_V: [-3.0, 3.0]
+      ramp_rate_V_per_s: 0.2
+      step_delay_s: 0.02
+
+    top_gate:
+      instrument: uvolt
+      channel: dac1
+      soft_limits_V: [-2.0, 2.0]
+      ramp_rate_V_per_s: 0.2
+      step_delay_s: 0.02
+
+  lockins:
+    settle_factor_tau: 7  # settle time = factor * max(tau_I, tau_V)
+
+  monitor:
+    abort_if_I_R_gt_V: 1.0
+    abort_if_V_R_gt_V: 2.0
