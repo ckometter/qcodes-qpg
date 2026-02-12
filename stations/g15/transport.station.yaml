@@ -13,39 +13,45 @@ instruments:
   # This name is what is looked up by the `load_instrument`
   # method of `Station`.
   uvolt:
-    type: your_driver_module.QPGUVoltDAQ4O4I
+    type: instrument_drivers.QPG.QPG_uVoltDAQ_4O4I.QPGUVoltDAQ4O4I
     address: ASRL15::INSTR
-    timeout: 5
-    initialize: false
+    init:
+      timeout: 5
+      initialize: false
+
+    add_parameters:
+      back_gate:
+        source: dac0.voltage
+        label: Back gate
+        unit: V
+        limits: [-10.0, 10.0]
+        step: 0.1
+        inter_delay: 0.1
+        post_delay: 0.0
+
+      top_gate:
+        source: dac1.voltage
+        label: Top gate
+        unit: V
+        limits: [-5.5, 6.0]
+        step: 0.1
+        inter_delay: 0.1
+        post_delay: 0.0
 
   lia_I:
     type: qcodes.instrument_drivers.stanford_research.SR830.SR830
     address: GPIB::9::INSTR
+    parameters:
+      X: {monitor: true}
+      Y: {monitor: true}
 
   lia_V:
     type: qcodes.instrument_drivers.stanford_research.SR830.SR830
     address: GPIB::10::INSTR
+    parameters:
+      X: {monitor: true}
+      Y: {monitor: true}
 
-# Optional: non-instrument config you want shared across scripts
-config:
-  gates:
-    back_gate:
-      instrument: uvolt
-      channel: dac0
-      soft_limits_V: [-3.0, 3.0]
-      ramp_rate_V_per_s: 0.2
-      step_delay_s: 0.02
-
-    top_gate:
-      instrument: uvolt
-      channel: dac1
-      soft_limits_V: [-2.0, 2.0]
-      ramp_rate_V_per_s: 0.2
-      step_delay_s: 0.02
-
-  lockins:
-    settle_factor_tau: 7  # settle time = factor * max(tau_I, tau_V)
-
-  monitor:
-    abort_if_I_R_gt_V: 1.0
-    abort_if_V_R_gt_V: 2.0
+  keysight:
+    type: qcodes.instrument_drivers.Keysight.Keysight_B2962A.KeysightB2962A
+    address: GPIB::23::INSTR
